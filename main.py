@@ -35,7 +35,7 @@ class Alarms :
     def Object():
         print('ALERT ! There is something unsual on the floor, watch your step . ')
 
-
+#detecting the persons present in the room. 
 def person_detector(image):
     print('checking if there\'s someone in the room ............')
     # retruns the reactangle array highlithing the location of person in given image.  
@@ -52,6 +52,13 @@ def person_detector(image):
         print('There are '+str(len(result))+' persons in the image.')
     return result
 
+#marking the persons present in the room. 
+def mark_person(image, pick):
+    for (xA, yA, xB, yB) in pick:
+        cv2.rectangle(image, (xA, yA), (xB, yB), (255,255,0), 2)
+    cv2.imshow("Persons in Image : ", image)
+    return
+    
 # detecting fire in a frame using image processing 
 def FIF_IP(frame):
     #returns True or False based on whether there's fire or not. It will also output live frame after and before processing.   
@@ -170,8 +177,10 @@ def fire_in_video():
             persons_in_room = person_detector(frame)
             # persons_in_room = person_detector_temp(frame)
             cv2.putText(img=frame, text='Number of persons in room : '+str(len(persons_in_room)), org=(10, 25), fontFace=cv2.FONT_HERSHEY_SIMPLEX, fontScale=.5, color=(0, 0, 0))
-            cv2.imshow("Live Video : ", frame)
 
+            cv2.imshow("Live Video : ", frame)
+            mark_person(frame, persons_in_room)
+            
             if (len(persons_in_room)==0):
                 print('checking for signs of fire in frame .............. ')
                 cv2.putText(img=frame, text='There\'s no one in the room so checking for signs of fire in frame .............. ', org=(10, 40), fontFace=cv2.FONT_HERSHEY_SIMPLEX, fontScale=.5, color=(255, 255, 0))
