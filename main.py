@@ -39,7 +39,6 @@ class Alarms :
 def person_detector(image):
     print('checking if there\'s someone in the room ............')
     # retruns the reactangle array highlithing the location of person in given image.  
-    image = imutils.resize(image, width=min(400, image.shape[1]))
     clone = image.copy()
     (rects, weights) = HOGCV.detectMultiScale(image, winStride=(4, 4),padding=(8, 8), scale=1.05)
     for (x, y, w, h) in rects:
@@ -61,6 +60,7 @@ def mark_person(image, pick):
     
 # detecting fire in a frame using image processing 
 def FIF_IP(frame):
+    cv2.imshow("Original" , frame)
     #returns True or False based on whether there's fire or not. It will also output live frame after and before processing.   
     blur = cv2.GaussianBlur(frame, (21, 21), 0)
     hsv = cv2.cvtColor(blur, cv2.COLOR_BGR2HSV)
@@ -76,7 +76,7 @@ def FIF_IP(frame):
     no_red = cv2.countNonZero(mask)
 
     prob_of_fire = (int(no_red) * 100)/40000  
-
+    print('Chances of fire : '+str(prob_of_fire)+' % ')
     cv2.putText(img=output, text='Chances of fire : '+str(prob_of_fire)+' % ' , org=(10, 100), fontFace=cv2.FONT_HERSHEY_SIMPLEX, fontScale=1, color=(255, 255, 0))
     
     # cv2.imshow("Live Video : ", frame)
@@ -108,27 +108,31 @@ def fire_in_image():
 
     print('You are in option to detect fire in an image.')
     file_path = filedialog.askopenfilename()
-    content = cv2.imread(file_path, 0)
-    cv2.imshow("Live Video : ", content)
+    image = content = cv2.imread(file_path)
+    content = imutils.resize(content, width=min(400, content.shape[1]))
+    cv2.imshow("Original Image : ", content)
     # content = np.float32(content)
     # content.astype(np.float32).dtype
-    root = tk.Tk()
-    root.title('Fire Detection App')
-    root.geometry("720x580")
-    leftFrame = Frame(root)
-    label2 = Label(leftFrame, text="Detecting fire in an Image. ",fg="Red",  font=('Verdana', 25, 'bold'))
-    label2.pack()
+    #root = tk.Tk()
+    #root.title('Fire Detection App')
+    #root.geometry("720x580")
+    #leftFrame = Frame(root)
+    #label2 = Label(leftFrame, text="Detecting fire in an Image. ",fg="Red",  font=('Verdana', 25, 'bold'))
+    #label2.pack()
 
-    label0 = Label(leftFrame, text="Please wait while the system looks for signs of fire in given image. ", fg="Green", font=('Verdana', 15, 'bold'))
-    label0.pack()
+    #label0 = Label(leftFrame, text="Please wait while the system looks for signs of fire in given image. ", fg="Green", font=('Verdana', 15, 'bold'))
+    #label0.pack()
     
-    cv2.putText(img=content, text='checking if there\'s someone in the room ............' , org=(10, 10), fontFace=cv2.FONT_HERSHEY_SIMPLEX, fontScale=0.5, color=(0, 0, 0))
-    cv2.imshow("Live Video : ", content)
+    #cv2.putText(img=content, text='checking if there\'s someone in the room ............' , org=(10, 10), fontFace=cv2.FONT_HERSHEY_SIMPLEX, fontScale=0.5, color=(0, 0, 0))
+    #cv2.imshow("Original Image : ", content)
 
     persons_in_room = person_detector(content)
     # persons_in_room = person_detector_temp(frame)
-    cv2.putText(img=content, text='Number of persons in room : '+str(len(persons_in_room)), org=(10, 25), fontFace=cv2.FONT_HERSHEY_SIMPLEX, fontScale=.5, color=(0, 0, 0))
-    cv2.imshow("Live Video : ", content)
+    mark_person(content, persons_in_room)
+    #cv2.putText(img=content, text='Number of persons in room : '+str(len(persons_in_room)), org=(10, 25), fontFace=cv2.FONT_HERSHEY_SIMPLEX, fontScale=.5, color=(0, 0, 0))
+    #cv2.imshow("Live Video : ", content)
+    cv2.waitKey(600)
+    leftFrame = tk.Tk()
 
     if (FIF_IP(content)):
 
@@ -236,9 +240,14 @@ def fire_in_footage():
         if frame_count>=4:
             cv2.putText(img=frame, text='checking if there\'s someone in the room ............' , org=(10, 10), fontFace=cv2.FONT_HERSHEY_SIMPLEX, fontScale=0.5, color=(0, 0, 0))
             cv2.imshow("Live Video : ", frame)
-
+            new_frame = imutils.resize(frame, width=min(400, frame.shape[1]))
             # print('checking if there\'s someone in the room ............')
-            persons_in_room = person_detector(frame)
+            persons_in_room = person_detector(new_frame)
+            if (len(persons_in_room)>=1):
+                print('The fall detection algorithm will work now.. ')
+                mark_person(new_frame, persons_in_room)
+                cv2.waitKey(500)
+                #fall_detection(frame)
             # persons_in_room = person_detector_temp(frame)
             cv2.putText(img=frame, text='Number of persons in room : '+str(len(persons_in_room)), org=(10, 25), fontFace=cv2.FONT_HERSHEY_SIMPLEX, fontScale=.5, color=(0, 0, 0))
             cv2.imshow("Live Video : ", frame)
