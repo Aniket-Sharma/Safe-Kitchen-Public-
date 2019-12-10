@@ -1,11 +1,3 @@
-# %% [markdown]
-# ## Introduction
-# Detection of fire and smoke in CCTV footage by fire authorities can significantly increase the response time to such tragedies saving many lives. This kernel translates this task into an image regonition problem on sampled CCTV video frames. 
-
-# %% [code]
-# This Python 3 environment comes with many helpful analytics libraries installed
-# It is defined by the kaggle/python docker image: https://github.com/kaggle/docker-python
-# For example, here's several helpful packages to load in 
 
 import numpy as np # linear algebra
 import pandas as pd # data processing, CSV file I/O (e.g. pd.read_csv)'
@@ -20,16 +12,42 @@ from sklearn.utils import class_weight
 from tensorflow.python.keras import optimizers
 from tkinter import filedialog
 
-
 import cv2
 import math
 from IPython.display import clear_output
-#%matplotlib inline
-
-# Input data files are available in the "../input/" directory.
-# For example, running this (by clicking run or pressing Shift+Enter) will list the files in the input directory
 
 import os
+
+#IP and CV
+
+import math
+import time 
+
+import imutils
+from imutils.object_detection import non_max_suppression
+from imutils import paths
+
+import tkinter as tk
+from tkinter import filedialog
+from tkinter import messagebox
+from tkinter import *
+
+from google.cloud import vision
+from google.cloud.vision import types
+
+fgbg = cv2.createBackgroundSubtractorMOG2()
+j = 0
+
+# Opencv pre-trained SVM with HOG people features 
+
+# HOGCV = cv2.HOGDescriptor()
+# HOGCV.setSVMDetector(cv2.HOGDescriptor_getDefaultPeopleDetector())
+
+HOGCV = cv2.HOGDescriptor()
+HOGCV.setSVMDetector(cv2.HOGDescriptor_getDefaultPeopleDetector())
+
+
+#ML
 print(os.listdir("input/fire-detection-from-cctv/data/img_data"))
 print(os.listdir("input/fire-detection-from-cctv/data/video_data/test_videos"))
 print(os.listdir("input/fire-detection-from-cctv/data"))
@@ -37,28 +55,16 @@ print(os.listdir("input/fire-detection-from-cctv/data"))
 print(os.listdir("input/resnet50"))
 print(os.listdir("input/vgg16"))
 
-# Any results you write to the current directory are saved as output.
-
-# %% [markdown]
-# ## Data Preparation
-# The CCTV footage for training and testing is downloaded from publically available videos on Youtube. The training set is prepared by sampling the videos at a constant rate and manually distributing the sampled frames into 'default', 'fire' and 'smoke' categories. Frames are kept in directories named after the class to which  they belong.
-
-# %% [code]
 IMG_SIZE = 20
 NUM_EPOCHS = 1
 NUM_CLASSES = 3
 TRAIN_BATCH_SIZE = 77
 TEST_BATCH_SIZE = 1 
 
+#trained_model_l, label_dict_l, model, train_generator, validation_generator, trained_model_s, label_dict_s = {}, {}, {}, {}, {}, {}, {}
 
-# %% [markdown]
-# ## Model Creation
-# 
-# The model is created by appending 'Dense' layer, with number of activation units equivalent to the number classes (3), to a pre-trained Reset50 model. This significantly reduces the training time.
-# 
-# 
 
-# %% [code]
+
 def create_model( model_size ):
     my_new_model = Sequential()
     if  model_size == 'L':
@@ -132,7 +138,7 @@ def train_model( model ):
             #class_weight=dict_weights
                 )
     
-    plot_history( H, NUM_EPOCHS )
+    #plot_history( H, NUM_EPOCHS )
     
     return model, train_generator,validation_generator
 
@@ -161,7 +167,7 @@ def get_pred_labels( test_generator):
     
 
 # %% [code]
-def plot_history( H, NUM_EPOCHS ):
+#def plot_history( H, NUM_EPOCHS ):
     plt.style.use("ggplot")
     fig = plt.figure()
     fig.set_size_inches(15, 5)
@@ -191,56 +197,25 @@ def plot_history( H, NUM_EPOCHS ):
     plt.ylabel("Loss/Accuracy")
     plt.legend(loc="lower left")
 
-
     plt.show()
-    #plt.savefig("plot.png")
-    
 
-# %% [markdown]
-# ## Prediction
-# 
-# Prediction involves sampling the test videos into frames and predicting the class probabilities in each sampled frame. The class with the maximum probbality is assigned to the frame. However, if the max probablility is less than 0.5, the frame is assigned to the default class.  The predicted class and the class probability is drawn on the frame before writing it into a separate video file using VideoWriter
-
-# %% [code]
 def draw_prediction( frame, class_string ):
-    x_start = frame.shape[1] -600
-    cv2.putText(frame, class_string, (x_start, 75), cv2.FONT_HERSHEY_SIMPLEX, 2.5, (255, 0, 0), 2, cv2.LINE_AA)
+    x_start = int(frame.shape[0]/2)
+    y_start = int(frame.shape[1]/2) 
+    cv2.putText(frame, class_string, (x_start, y_start), cv2.FONT_HERSHEY_SIMPLEX, 1.5, (255, 0, 0), 2, cv2.LINE_AA)
     return frame
 
-# %% [code]
 def prepare_image_for_prediction( img):
-   
-    # convert 3D tensor to 4D tensor with shape (1, 224, 224, 3) and return 4D tensor
-    # The below function inserts an additional dimension at the axis position provided
     img = np.expand_dims(img, axis=0)
-    # perform pre-processing that was done when resnet model was trained.
     return preprocess_input(img)
 
-# %% [code]
-model = create_model('L')
-
-# %% [code]
-trained_model_l, train_generator,validation_generator = train_model(model)
-label_dict_l = get_label_dict(train_generator )
-
-# %% [code]
-model = create_model('S')
-
-# %% [code]
-trained_model_s, train_generator,validation_generator = train_model(model)
-label_dict_s = get_label_dict(train_generator)
-
-# %% [code]
 def get_display_string(pred_class, label_dict):
     txt = ""
     for c, confidence in pred_class:
         txt += label_dict[c]
         if c :
             txt += '['+ str(confidence) +']'
-    #print("count="+str(len(pred_class)) + " txt:" + txt)
     return txt
-
-# %% [code]
 
 def predict(  model, video_path, filename, label_dict ):
     
@@ -283,57 +258,416 @@ def predict(  model, video_path, filename, label_dict ):
         
     vs.release()
     writer.release()
-      
-   
 
-# %% [code]
-#test_lables = get_test_labels( validation_generator )
-#print(test_lables)
+model = create_model('L')
+trained_model_l, train_generator,validation_generator = train_model(model)
+label_dict_l = get_label_dict(train_generator )
 
-# %% [code]
-#pred_lables, confidence = get_pred_labels( validation_generator )
-#print( pred_lables )
+model = create_model('S')
+
+trained_model_s, train_generator,validation_generator = train_model(model)
+label_dict_s = get_label_dict(train_generator)
+
+def ML_main():
+	global trained_model_l, label_dict_l, model, train_generator, validation_generator, trained_model_s, label_dict_s
+
+	model = create_model('L')
+	trained_model_l, train_generator,validation_generator = train_model(model)
+	label_dict_l = get_label_dict(train_generator )
+
+	model = create_model('S')
+
+	trained_model_s, train_generator,validation_generator = train_model(model)
+	label_dict_s = get_label_dict(train_generator)
+
+def FIF_ML(  frame, model=trained_model_l, label_dict=label_dict_l ):       
+    resized_frame = cv2.resize(frame, (IMG_SIZE, IMG_SIZE))
+    frame_for_pred = prepare_image_for_prediction( resized_frame )
+    pred_vec = model.predict(frame_for_pred)
+    print(pred_vec)
+    pred_class =[]
+    confidence = np.round(pred_vec.max(),2)
+
+    fire_in_frame = False
+
+    if confidence > 0.4:
+        pc = pred_vec.argmax()
+        pred_class.append( (pc, confidence) )
+        fire_in_frame = True
+
+    else:
+        pred_class.append( (0, 0) )
+
+    if pred_class:
+        txt = get_display_string(pred_class, label_dict)       
+        frame = draw_prediction( frame, txt )
+
+    print("This frame\'s pred class is : "+str(pred_class))
+    print("The confidence rate in this frame is : "+str(confidence))
+
+    plt.axis('off')
+    plt.imshow(frame)
+    plt.show()
+    clear_output(wait = True)
+
+    return fire_in_frame 
 
 
-# %% [code]
+	# while True:
+	# 	video_path = filedialog.askopenfilename()
+	# 	predict ( trained_model_l, video_path, 'test1_9.avi',  label_dict_l)
+		
+	# 	if 0xFF == ord('q'):
+	# 		break
 
-while True:
+
+class Alarms :
+    def Fire():
+        print('ALERT ! There is a fire in the kitchen. Please Check it out. ')
+    def Fall():
+        print('ALERT ! The person has fallen. Please check it out. ')
+    def Object():
+        print('ALERT ! There is something unsual on the floor, watch your step . ')
+
+#detecting the persons present in the room. 
+def person_detector(image):
+    print('checking if there\'s someone in the room ............')
+    # retruns the reactangle array highlithing the location of person in given image.  
+
+    orig = image.copy()
+    (rects, weights) = HOGCV.detectMultiScale(image, winStride=(4, 4), padding=(8, 8), scale=1.05)
+
+    for (x, y, w, h) in rects:
+        cv2.rectangle(orig, (x, y), (x + w, y + h), (0, 0, 255), 2)
+ 
+    rects = np.array([[x, y, x + w, y + h] for (x, y, w, h) in rects])
+    result = non_max_suppression(rects, probs=None, overlapThresh=0.65)
+    if len(result)==0 :
+        print('There\'s no person in the image. ')
+    else:
+        print('There are '+str(len(result))+' persons in the image.')
+    return result
+
+#marking the persons present in the room. 
+def mark_person(image, pick): 
+    print('we are here. ')
+    for (xA, yA, xB, yB) in pick:
+        cv2.rectangle(image, (xA, yA), (xB, yB), (255,255,0), 2)
+    cv2.imshow("Persons in Image : ", image)
+    return 
+#detecting smoke in a frame using image processing
+def SIP_IP(frame):
+    return True
+    a1, a2, k1, k2, k3, k4 = 5, 20, 80, 150, 190, 255 
+    height, width, _ = frame.shape
+    smoke = 0 
+    for i in range(height):
+        for j in range(width):
+            m = max(frame[i][j][0], frame[i][j][1], frame[i][j][2])
+            n = min(frame[i][j][0], frame[i][j][1], frame[i][j][2])
+            i = (frame[i][j][0]+frame[i][j][1]+frame[i][j][2]) / 3
+            a = m-n
+            if a <= a1 and (i>=k1 and i<=k2):
+                frame[i][j] = [0, 255, 0]
+                smoke+=1
+            elif a<= a2 and (i>=k3 and i<=k4):
+                frame[i][j] = [0,0,255]
+                smoke+=1
+
+    prob = smoke*100 / width*height
     
+    print('Smoke Pixel percentage  : '+str(prob)+' % ')
+    
+    if prob>25:
+        cv2.imshow("Smoke Pixels heighlited  : " , frame)
+        cv2.waitKey(500)
+        return True
+    return False
+            
+    
+# detecting fire in a frame using image processing 
+def FIF_IP(frame):
+    cv2.imshow("Original" , frame)
+    #returns True or False based on whether there's fire or not. It will also output live frame after and before processing.   
+    blur = cv2.GaussianBlur(frame, (21, 21), 0)
+    hsv = cv2.cvtColor(blur, cv2.COLOR_BGR2HSV)
+ 
+    lower = [18, 50, 50]
+    upper = [35, 255, 255]
+
+    lower = np.array(lower, dtype="uint8")
+    upper = np.array(upper, dtype="uint8")
+    mask = cv2.inRange(hsv, lower, upper)
+    
+    output = cv2.bitwise_and(frame, hsv, mask=mask)
+    no_red = cv2.countNonZero(mask)
+
+    width, height, _ = frame.shape
+    
+    prob_of_fire = (int(no_red)*100)/(width*height)
+    
+    print('Chances of fire : '+str(prob_of_fire)+' % ')
+    cv2.putText(img=output, text='Chances of fire : '+str(prob_of_fire)+' % ' , org=(10, 100), fontFace=cv2.FONT_HERSHEY_SIMPLEX, fontScale=1, color=(255, 255, 0))
+    
+    # cv2.imshow("Live Video : ", frame)
+
+    # cv2.imshow("Probabilty of fire : ", output)
+    cv2.imshow("Pixels with Fire like properties : " , output)
+    # cv2.putText(img, prob_of_fire, (x, h), cv2.FONT_HERSHEY_SIMPLEX, 1.0, (255, 255, 255), lineType=cv2.LINE_AA) 
+    #print("output:", frame)
+    #print(int(no_red))
+
+    if cv2.waitKey(1) & 0xFF == ord('q'):
+        cv2.destroyAllWindows()
+        return False
+
+    if int(prob_of_fire) > 20:
+        print ('Fire detected in this image. ')
+        return True
+
+    print('There are '+str(prob_of_fire)+' %  chances of fire in this frame. ')
+
+    return False
+
+
+def fire_in_image():
+
+    print('You are in option to detect fire in an image.')
+    file_path = filedialog.askopenfilename()
+    image = content = cv2.imread(file_path)
+    content = imutils.resize(content, width=min(400, content.shape[1]))
+    cv2.imshow("Original Image : ", content)
+    # content = np.float32(content)
+    # content.astype(np.float32).dtype
+    #root = tk.Tk()
+    #root.title('Fire Detection App')
+    #root.geometry("720x580")
+    #leftFrame = Frame(root)
+    #label2 = Label(leftFrame, text="Detecting fire in an Image. ",fg="Red",  font=('Verdana', 25, 'bold'))
+    #label2.pack()
+
+    #label0 = Label(leftFrame, text="Please wait while the system looks for signs of fire in given image. ", fg="Green", font=('Verdana', 15, 'bold'))
+    #label0.pack()
+    
+    #cv2.putText(img=content, text='checking if there\'s someone in the room ............' , org=(10, 10), fontFace=cv2.FONT_HERSHEY_SIMPLEX, fontScale=0.5, color=(0, 0, 0))
+    #cv2.imshow("Original Image : ", content)
+
+    persons_in_room = person_detector(content)
+    # persons_in_room = person_detector_temp(frame)
+    mark_person(content, persons_in_room)
+    #cv2.putText(img=content, text='Number of persons in room : '+str(len(persons_in_room)), org=(10, 25), fontFace=cv2.FONT_HERSHEY_SIMPLEX, fontScale=.5, color=(0, 0, 0))
+    #cv2.imshow("Live Video : ", content)
+    cv2.waitKey(600)
+    leftFrame = tk.Tk()
+
+    content = cv2.imread(file_path)
+    content = imutils.resize(content, width=min(400, content.shape[1]))
+    cv2.imshow("Original Image : ", content)
+    
+    persons_in_room = person_detector(content)
+    # persons_in_room = person_detector_temp(frame)
+    mark_person(content, persons_in_room)
+    cv2.waitKey(600)
+
+    leftFrame = tk.Tk()
+
+    label4 = Label(leftFrame, text="Number of Persons in the Image : "+str(len(persons_in_room)), fg="Green", font=('Verdana', 15, 'bold'))
+    label4.pack()
+
+    if (FIF_IP(content) or SIP_IP(content)):
+
+        label4 = Label(leftFrame, text="The Image Processing algorithm shows positive signs of Fire.\n lets run the ML algo.  ", fg="Green", font=('Verdana', 15, 'bold'))
+        label4.pack()
+
+        if (FIF_ML(content)):
+            label5 = Label(leftFrame, text="The ML algorithm also shows positive signs of Fire.\n There is fire in given image.", fg="Green", font=('Verdana', 15, 'bold'))
+            label5.pack()
+            Alarms.Fire()
+            return
+        else:
+            label5 = Label(leftFrame, text="The ML algorithm also shows negative signs of Fire.\n The Image Processing algo created a false alarm .", fg="Green", font=('Verdana', 15, 'bold'))
+            label5.pack()
+            return
+        
+    label6 = Label(leftFrame, text="The Image Processing algorithm shows negative signs of Fire.\n There is no fire in given image.  ", fg="Green", font=('Verdana', 15, 'bold'))
+    label6.pack()
+
+    return
+    
+def fire_in_video():
+    print('You are in option to detect fire in a video.')
     video_path = filedialog.askopenfilename()
-    predict ( trained_model_l, video_path, 'test1_9.avi',  label_dict_l)
-    
-    if 0xFF == ord('q'):
-        break
+    # with io.open(video_path, 'rb') as video_file:
+    video = cv2.VideoCapture(video_path)
+    # fps = math.floor(vs.get(cv2.CAP_PROP_FPS))
+    ret_val = True
+    writer = 0
+    frame_count = 0 
+    while True:
+        (grabbed, frame) = video.read()
+
+        if not grabbed:
+            break
+
+        frame_count+=1
+        # will use the algorithm on every 100th frame
+
+        if frame_count>=4:
+
+            cv2.putText(img=frame, text='checking if there\'s someone in the room ............' , org=(10, 10), fontFace=cv2.FONT_HERSHEY_SIMPLEX, fontScale=0.5, color=(0, 0, 0))
+            cv2.imshow("Live Video : ", frame)
+
+            # print('checking if there\'s someone in the room ............')
+            persons_in_room = person_detector(frame)
+            # persons_in_room = person_detector_temp(frame)
+            cv2.putText(img=frame, text='Number of persons in room : '+str(len(persons_in_room)), org=(10, 25), fontFace=cv2.FONT_HERSHEY_SIMPLEX, fontScale=.5, color=(0, 0, 0))
+
+            cv2.imshow("Live Video : ", frame)
+            mark_person(frame, persons_in_room)
+            
+            if (len(persons_in_room)==0):
+                print('checking for signs of fire in frame .............. ')
+                cv2.putText(img=frame, text='There\'s no one in the room so checking for signs of fire in frame .............. ', org=(10, 40), fontFace=cv2.FONT_HERSHEY_SIMPLEX, fontScale=.5, color=(255, 255, 0))
+                cv2.imshow("Live Video : ", frame)
+                
+                if (FIF_IP(frame) or SIP_IP(frame)):
+                    Frames_with_Fire.append(frame)
+                    print('Detected fire in '+str(len(Frames_with_Fire))+' Consequent Frames. ')
+                    cv2.putText(img=frame, text='Detected fire in '+str(len(Frames_with_Fire))+' Consequent Frames. ', org=(10, 55), fontFace=cv2.FONT_HERSHEY_SIMPLEX, fontScale=.5, color=(255, 255, 0))
+                    cv2.imshow("Live Video : ", frame)
+                
+                    if (len(Frames_with_Fire) >= 10 ):
+                        print('Running ML algo to confirm the possibility of fire in given frames : .... ')
+                        cv2.putText(img=frame, text='Running ML algo to confirm the possibility of fire in given frames : ....' , org=(10, 70), fontFace=cv2.FONT_HERSHEY_SIMPLEX, fontScale=.5, color=(255, 255, 240))
+                        cv2.imshow("Live Video : ", frame)
+                
+                        count = 0
+                        for i in range(len(Frames_with_Fire)):
+                            if (FIF_ML(Frames_with_Fire[i])):
+                                count+=1
+
+                        print('Fire detected in '+str(count)+' frames out of '+str(len(Frames_with_Fire)))
+                        if len(Frames_with_Fire)-count <= 4 :
+                            print('ALERT ! There\'s fire in the kitchen. ')
+                            # call the Fire alarm function 
+                            Alarms.Fire()
+
+                else :
+                    Frames_with_Fire = [] 
+
+            frame_count = 0
+
+
+        if cv2.waitKey(1) & 0xFF == ord('q'):
+            video.release()
+            break
+
         
+def fire_in_footage():
+    Frames_with_Fire = []
+    print('You are in option to detect fire in live vedio. ')
+    sec = 1
+    frame_count = 0
+    print('Turning on the camera ... ')
+    video = cv2.VideoCapture(0)
+    while True:
+        print('checking for signs of fire in live vedio input from webcam ..... ')
+        # video.set(cv2.CAP_PROP_POS_MSEC,sec*1000)
+        (grabbed, frame) = video.read()
+        frame_count+=1
+        # will use the algorithm on every 100th frame
+        if frame_count>=4:
+            cv2.putText(img=frame, text='checking if there\'s someone in the room ............' , org=(10, 10), fontFace=cv2.FONT_HERSHEY_SIMPLEX, fontScale=0.5, color=(0, 0, 0))
+            cv2.imshow("Live Video : ", frame)
+            new_frame = imutils.resize(frame, width=min(400, frame.shape[1]))
+            # print('checking if there\'s someone in the room ............')
+            persons_in_room = person_detector(new_frame)
+            if (len(persons_in_room)>=1):
+                print('The fall detection algorithm will work now.. ')
+                mark_person(new_frame, persons_in_room)
+                cv2.waitKey(500)
+                #fall_detection(frame)
+            # persons_in_room = person_detector_temp(frame)
+            cv2.putText(img=frame, text='Number of persons in room : '+str(len(persons_in_room)), org=(10, 25), fontFace=cv2.FONT_HERSHEY_SIMPLEX, fontScale=.5, color=(0, 0, 0))
+            cv2.imshow("Live Video : ", frame)
+
+            if (len(persons_in_room)==0):
+                print('checking for signs of fire in frame .............. ')
+                cv2.putText(img=frame, text='There\'s no one in the room so checking for signs of fire in frame .............. ', org=(10, 40), fontFace=cv2.FONT_HERSHEY_SIMPLEX, fontScale=.5, color=(255, 255, 0))
+                cv2.imshow("Live Video : ", frame)
+                
+                if (FIF_IP(frame) or SIP_IP(frame)):
+                    Frames_with_Fire.append(frame)
+                    print('Detected fire in '+str(len(Frames_with_Fire))+' Consequent Frames. ')
+                    cv2.putText(img=frame, text='Detected fire in '+str(len(Frames_with_Fire))+' Consequent Frames. ', org=(10, 55), fontFace=cv2.FONT_HERSHEY_SIMPLEX, fontScale=.5, color=(255, 255, 0))
+                    cv2.imshow("Live Video : ", frame)
+                
+                    if (len(Frames_with_Fire) >= 10 ):
+                        print('Running ML algo to confirm the possibility of fire in given frames : .... ')
+                        cv2.putText(img=frame, text='Running ML algo to confirm the possibility of fire in given frames : ....' , org=(10, 70), fontFace=cv2.FONT_HERSHEY_SIMPLEX, fontScale=.5, color=(255, 255, 240))
+                        cv2.imshow("Live Video : ", frame)
+                
+                        count = 0
+                        for i in range(len(Frames_with_Fire)):
+                            if (FIF_ML(Frames_with_Fire[i])):
+                                count+=1
+
+                        print('Fire detected in '+str(count)+' frames out of '+str(len(Frames_with_Fire)))
+                        if len(Frames_with_Fire)-count <= 4 :
+                            print('ALERT ! There\'s fire in the kitchen. ')
+                            # call the Fire alarm function 
+                            Alarms.Fire()
+
+                else :
+                    Frames_with_Fire = [] 
+
+            frame_count = 0 
+
+        if not grabbed:
+            print('not grabbed')
+            video.release()
+            break
+            
+        if cv2.waitKey(1) & 0xFF == ord('q'):
+            video.release()
+            break
+
+# deploy GUI
+if __name__=='__main__':
+
+    root = tk.Tk()
+    root.title('Fire and Fall Detection App')
+    root.geometry("720x580")
+    # Create 2 frames for interface
+    leftFrame = Frame(root)
+    label2 = Label(leftFrame, text="Fire and Fall Detection System. ",fg="Red",  font=('Verdana', 25, 'bold'))
+    label2.pack()
+    quote = """
+    We are trying to keep your loved ones safe from hazards \nthat are frequent reasons of injuries and loss among\n elderly people. 
+    \n You can do other works while leaving your\n loved ones in our system\'s safe hands. """
+    label0 = Label(leftFrame, text=quote,fg="Green", font=('Verdana', 15, 'bold'))
+    label0.pack()
+    label1 = Label(leftFrame, text="\n\nSelect one of the following options : \n Check fire in a : \n ", font=('Verdana', 15, 'bold'))
+    label1.pack()
+    buttonSeek = Button(leftFrame, text="Picture", fg="Blue", bg="#DBF7DD",width=20, padx=20, pady=10 , font=('Rakkas', 22, 'bold', 'italic'), command=lambda : fire_in_image())
+    buttonSeek.pack(side=LEFT)
+
+    buttonSeek = Button(leftFrame, text="Video", fg="Blue", bg="#DBF7DD",width=20, padx=20, pady=10 , font=('BioRhyme', 22, 'bold', 'italic'), command=lambda : fire_in_video())
+    buttonSeek.pack(side=LEFT)
+
+    leftFrame.pack(padx=40, pady=10)    
+
+    rightFrame = Frame(root)
+    buttonSeek = Button(rightFrame, text="Live Video", bg="#DBF7DD", fg="Red" , width=20, padx=20, pady=10 , font=('Classic', 22, 'bold', 'italic'), command=lambda : fire_in_footage())
+    buttonSeek.pack()
+    rightFrame.pack()
+
+    rightFrame = Frame(root)
+
+    buttonSeek = Button(rightFrame, text="Train the ML Model: ", bg="#DBF7DD", fg="Red" , width=20, padx=20, pady=10 , font=('Classic', 22, 'bold', 'italic'), command=lambda : ML_main())
+    buttonSeek.pack()
+    rightFrame.pack()
+
+
+    root.mainloop()
         
-# video_path = 'input/fire-detection-from-cctv/data/data/video_data/test_videos/test1.mp4'
-# predict ( trained_model_l, video_path, 'test1_9.avi',  label_dict_l) 
-
-# video_path = 'input/fire-detection-from-cctv/data/data/video_data/test_videos/test2.mp4'
-# predict ( trained_model_l, video_path, 'test2_9.avi',  label_dict_l) 
-
-# video_path = 'input/fire-detection-from-cctv/data/data/video_data/test_videos/test3.mp4'
-# predict ( trained_model_l, video_path, 'test3_9.avi',  label_dict_l) 
-
-# %% [markdown]
-# ## Results:
-# Below are the three test videos that were passed through the trained model. It can be seen that in case there is both fire and smoke, the model is biased towards predicting it as smoke. If we look at the training vs validtion accuracy, it is clear that the model is overfitting the training data. There is still some work that needs to be done on this.
-
-# # %% [code]
-# from IPython.display import YouTubeVideo
-# YouTubeVideo('cHlTG6WL0OY', width=800, height=450)
-
-
-# # %% [code]
-# from IPython.display import YouTubeVideo
-# YouTubeVideo('Lk7_qDy60CI', width=800, height=450)
-
-
-# %% [markdown]
-# ## References:
-# 
-# [1] https://www.pyimagesearch.com/2018/12/24/how-to-use-keras-fit-and-fit_generator-a-hands-on-tutorial/  
-# [2] https://medium.com/@vijayabhaskar96/tutorial-image-classification-with-keras-flow-from-directory-and-generators-95f75ebe5720  
-# [3] https://www.learnopencv.com/read-write-and-display-a-video-using-opencv-cpp-python/  
-# [4] https://github.com/bikz05/ipython-notebooks/blob/master/computer-vision/displaying-video-in-ipython-notebook.ipynb
-# 
