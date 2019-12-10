@@ -61,6 +61,34 @@ def mark_person(image, pick):
         cv2.rectangle(image, (xA, yA), (xB, yB), (255,255,0), 2)
     cv2.imshow("Persons in Image : ", image)
     return 
+#detecting smoke in a frame using image processing
+def SIP_IP(frame):
+    a1, a2, k1, k2, k3, k4 = 5, 20, 80, 150, 190, 255 
+    height, width, _ = frame.shape
+    smoke = 0 
+    for i in range(height):
+        for j in range(width):
+            m = max(frame[i][j][0], frame[i][j][1], frame[i][j][2])
+            n = min(frame[i][j][0], frame[i][j][1], frame[i][j][2])
+            i = (frame[i][j][0]+frame[i][j][1]+frame[i][j][2]) / 3
+            a = m-n
+            if a <= a1 and (i>=k1 and i<=k2):
+                frame[i][j] = [0, 255, 0]
+                smoke+=1
+            elif a<= a2 and (i>=k3 and i<=k4):
+                frame[i][j] = [0,0,255]
+                smoke+=1
+
+    prob = smoke*100 / width*height
+    
+    print('Smoke Pixel percentage  : '+str(prob)+' % ')
+    
+    if prob>25:
+        cv2.imshow("Smoke Pixels heighlited  : " , frame)
+        cv2.waitKey(500)
+        return True
+    return False
+            
     
 # detecting fire in a frame using image processing 
 def FIF_IP(frame):
@@ -79,7 +107,10 @@ def FIF_IP(frame):
     output = cv2.bitwise_and(frame, hsv, mask=mask)
     no_red = cv2.countNonZero(mask)
 
-    prob_of_fire = (int(no_red) * 100)/40000  
+    width, height, _ = frame.shape
+    
+    prob_of_fire = (int(no_red)*100)/(width*height)
+    
     print('Chances of fire : '+str(prob_of_fire)+' % ')
     cv2.putText(img=output, text='Chances of fire : '+str(prob_of_fire)+' % ' , org=(10, 100), fontFace=cv2.FONT_HERSHEY_SIMPLEX, fontScale=1, color=(255, 255, 0))
     
@@ -95,7 +126,7 @@ def FIF_IP(frame):
         cv2.destroyAllWindows()
         return False
 
-    if int(no_red) > 20000:
+    if int(prob_of_fire) > 20:
         print ('Fire detected in this image. ')
         return True
 
@@ -152,7 +183,7 @@ def fire_in_image():
     label4 = Label(leftFrame, text="Number of Persons in the Image : "+str(len(persons_in_room)), fg="Green", font=('Verdana', 15, 'bold'))
     label4.pack()
 
-    if (FIF_IP(content)):
+    if (FIF_IP(content) or SIP_IP(content)):
 
         label4 = Label(leftFrame, text="The Image Processing algorithm shows positive signs of Fire.\n lets run the ML algo.  ", fg="Green", font=('Verdana', 15, 'bold'))
         label4.pack()
@@ -208,7 +239,7 @@ def fire_in_video():
                 cv2.putText(img=frame, text='There\'s no one in the room so checking for signs of fire in frame .............. ', org=(10, 40), fontFace=cv2.FONT_HERSHEY_SIMPLEX, fontScale=.5, color=(255, 255, 0))
                 cv2.imshow("Live Video : ", frame)
                 
-                if (FIF_IP(frame)):
+                if (FIF_IP(frame) or SIP_IP(frame)):
                     Frames_with_Fire.append(frame)
                     print('Detected fire in '+str(len(Frames_with_Fire))+' Consequent Frames. ')
                     cv2.putText(img=frame, text='Detected fire in '+str(len(Frames_with_Fire))+' Consequent Frames. ', org=(10, 55), fontFace=cv2.FONT_HERSHEY_SIMPLEX, fontScale=.5, color=(255, 255, 0))
@@ -275,7 +306,7 @@ def fire_in_footage():
                 cv2.putText(img=frame, text='There\'s no one in the room so checking for signs of fire in frame .............. ', org=(10, 40), fontFace=cv2.FONT_HERSHEY_SIMPLEX, fontScale=.5, color=(255, 255, 0))
                 cv2.imshow("Live Video : ", frame)
                 
-                if (FIF_IP(frame)):
+                if (FIF_IP(frame) or SIP_IP(frame)):
                     Frames_with_Fire.append(frame)
                     print('Detected fire in '+str(len(Frames_with_Fire))+' Consequent Frames. ')
                     cv2.putText(img=frame, text='Detected fire in '+str(len(Frames_with_Fire))+' Consequent Frames. ', org=(10, 55), fontFace=cv2.FONT_HERSHEY_SIMPLEX, fontScale=.5, color=(255, 255, 0))
