@@ -30,12 +30,11 @@ def SIP_IP():
     height, width, _ = frame.shape
     print(frame.shape)
     smoke = 0 
-    for i in range(height):
-        for j in range(width):
-            print(frame[i, j, 0], frame[i, j, 1], frame[i, j, 2])
-            m = max(frame[i][j][0], frame[i][j][1], frame[i][j][2])
-            n = min(frame[i][j][0], frame[i][j][1], frame[i][j][2])
-            i = (frame[i][j][0]+frame[i][j][1]+frame[i][j][2]) / 3
+    for i in range(int(height)):
+        for j in range(int(width)):
+            m = max(int(frame[i][j][0]), int(frame[i][j][1]), int(frame[i][j][2]))
+            n = min(int(frame[i][j][0]), int(frame[i][j][1]), int(frame[i][j][2]))
+            i = (int(frame[i][j][0])+int(frame[i][j][1])+int(frame[i][j][2])) / 3
             a = m-n
             if a <= a1 and (i>=k1 and i<=k2):
                 frame[i][j] = [0, 255, 0]
@@ -43,6 +42,7 @@ def SIP_IP():
             elif a<= a2 and (i>=k3 and i<=k4):
                 frame[i][j] = [0,0,255]
                 smoke+=1
+            print(a, i)
 
     prob = smoke*100 / width*height
     
