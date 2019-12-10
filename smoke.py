@@ -23,36 +23,34 @@ def SIP_IP():
     print('You are in option to detect smoke in an image.')
     file_path = filedialog.askopenfilename()
     frame = cv2.imread(file_path)
-    #content = imutils.resize(content, width=min(400, content.shape[1]))
+    frame = imutils.resize(frame, width=min(300, frame.shape[1]))
     cv2.imshow("Original Image : ", frame)
-    cv2.waitKey(0)
+    cv2.waitKey(10)
+    print("sdfdsf")
     a1, a2, k1, k2, k3, k4 = 5, 20, 80, 150, 190, 255 
     height, width, _ = frame.shape
     print(frame.shape)
-    smoke = 0 
-    for i in range(int(height)):
-        for j in range(int(width)):
-            m = max(int(frame[i][j][0]), int(frame[i][j][1]), int(frame[i][j][2]))
-            n = min(int(frame[i][j][0]), int(frame[i][j][1]), int(frame[i][j][2]))
-            i = (int(frame[i][j][0])+int(frame[i][j][1])+int(frame[i][j][2])) / 3
-            a = m-n
-            if a <= a1 and (i>=k1 and i<=k2):
-                frame[i][j] = [0, 255, 0]
+    smoke = 0
+    for i in range(width):
+        for j in range(height):
+            m = max(frame[i][j][0] ,frame[i][j][1], frame[i][j][2])
+            n = min(frame[i][j][0] ,frame[i][j][1], frame[i][j][2])
+            a=m-n
+            intensity = (frame[i][j][0] +frame[i][j][1]+ frame[i][j][2])/3
+            if (a <= a2 and a>=a1) and ((intensity>=k1 and intensity<=k2) or (intensity>=k3 and intensity<=k4)):
+                frame[i][j] = [0,255,0]
                 smoke+=1
-            elif a<= a2 and (i>=k3 and i<=k4):
-                frame[i][j] = [0,0,255]
-                smoke+=1
-            print(a, i)
 
-    prob = smoke*100 / width*height
-    
+    prob = (smoke*100) / (  width*height)
+    print(smoke)
     print('Smoke Pixel percentage  : '+str(prob)+' % ')
     cv2.imshow("Smoke Pixels heighlited  : " , frame)
+    cv2.waitKey(0)
     if prob>25:
         cv2.imshow("Smoke Pixels heighlited  : " , frame)
-        cv2.waitKey(500)
+        cv2.waitKey(0)
         return True
     return False
 
-print(SIP_IP())
+SIP_IP()
 

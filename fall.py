@@ -51,7 +51,7 @@ def fall_detector(frame):
     if contours:
         areas = []
 
-        for contour in contours:
+        for contour in contours: 	
             ar = cv2.contourArea(contour)
             areas.append(ar)
         

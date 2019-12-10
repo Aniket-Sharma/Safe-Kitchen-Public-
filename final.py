@@ -359,7 +359,6 @@ def mark_person(image, pick):
 
 #detecting smoke in a frame using image processing
 def SIF_IP(frame):
-    return False
     a1, a2, k1, k2, k3, k4 = 5, 20, 80, 150, 190, 255 
     height, width, _ = frame.shape
     smoke = 0 
@@ -367,12 +366,12 @@ def SIF_IP(frame):
         for j in range(width):
             m = max(frame[i][j][0], frame[i][j][1], frame[i][j][2])
             n = min(frame[i][j][0], frame[i][j][1], frame[i][j][2])
-            i = (frame[i][j][0]+frame[i][j][1]+frame[i][j][2]) / 3
+            intensity = (frame[i][j][0]+frame[i][j][1]+frame[i][j][2]) / 3
             a = m-n
-            if a <= a1 and (i>=k1 and i<=k2):
+            if a <= a1 and (intensity>=k1 and intensity<=k2):
                 frame[i][j] = [0, 255, 0]
                 smoke+=1
-            elif a<= a2 and (i>=k3 and i<=k4):
+            elif a <= a2 and (intensity>=k3 and intensity<=k4):
                 frame[i][j] = [0,0,255]
                 smoke+=1
 
@@ -380,7 +379,7 @@ def SIF_IP(frame):
     
     print('Smoke Pixel percentage  : '+str(prob)+' % ')
     
-    if prob>25:
+    if prob>10:
         cv2.imshow("Smoke Pixels heighlited  : " , frame)
         cv2.waitKey(500)
         return True
